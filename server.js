@@ -41,16 +41,23 @@ wss.on('connection', (ws) => {
                 room.client = ws;
                 ws.roomId = msg.roomId;
                 ws.isHost = false;
-                room.host.send(JSON.stringify({ type: 'joined' }));
+                
+                // ========== 修复这里 ==========
+                // 给房主发送 start（player 1）
+                room.host.send(JSON.stringify({ type: 'start', player: 1 }));
+                // 给加入者发送 start（player 2）
                 ws.send(JSON.stringify({ type: 'start', player: 2 }));
-                console.log('加入房间:', msg.roomId);
+                
+                console.log('游戏开始:', msg.roomId);
             }
             
             else if (msg.type === 'move') {
                 const room = rooms[ws.roomId];
                 if (!room) return;
+                
+                // 转发移动给另一方
                 const target = ws.isHost ? room.client : room.host;
-                if (target) {
+                if (target && target.readyState === WebSocket.OPEN) {
                     target.send(JSON.stringify({
                         type: 'move',
                         x: msg.x,
@@ -69,7 +76,9 @@ wss.on('connection', (ws) => {
         if (ws.roomId && rooms[ws.roomId]) {
             const room = rooms[ws.roomId];
             const other = ws.isHost ? room.client : room.host;
-            if (other) other.send(JSON.stringify({ type: 'disconnected' }));
+            if (other && other.readyState === WebSocket.OPEN) {
+                other.send(JSON.stringify({ type: 'disconnected' }));
+            }
             delete rooms[ws.roomId];
         }
     });
